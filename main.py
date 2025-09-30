@@ -175,70 +175,17 @@ def run_agent_loop(
 
 
 def main():
-    tools: list[ToolUnionParam] = [
-        {
-            "name": "python_expression",
-            "description": "Evaluates a Python expression",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "expression": {
-                        "type": "string",
-                        "description": "Will be passed to exec(). Use print() to output something. Returns stdout. ",
-                    }
-                },
-                "required": ["expression"],
-            },
-        },
-        {
-            "name": "submit_answer",
-            "description": "Submit the final answer",
-            "input_schema": {
-                "type": "object",
-                "properties": {"answer": {"description": "The final answer to submit"}},
-                "required": ["answer"],
-            },
-        },
-    ]
-
-    tool_handlers = {
-        "python_expression": python_expression_tool,
-        "submit_answer": submit_answer_tool,
-    }
-
-    # Run the test 10 times and track success rate
-    num_runs = 10
-    expected_answer = 8769
-    successes = 0
-
-    print(f"Running {num_runs} test iterations...")
-    print("=" * 60)
-
-    for i in range(num_runs):
-        print(f"\n\n{'=' * 20} RUN {i + 1}/{num_runs} {'=' * 20}")
-
-        result = run_agent_loop(
-            prompt="Calculate (2^10 + 3^5) * 7 - 100. Use the python_expression tool and then submit the answer.",
-            tools=tools,
-            tool_handlers=tool_handlers,
-            max_steps=5,
-            verbose=False,  # Set to False for cleaner output during multiple runs
-        )
-
-        if result == expected_answer:
-            print(f"✓ Run {i + 1}: SUCCESS - Got {result}")
-            successes += 1
-        else:
-            print(f"✗ Run {i + 1}: FAILURE - Got {result}, expected {expected_answer}")
-
-    # Calculate and display pass rate
-    pass_rate = (successes / num_runs) * 100
-    print(f"\n{'=' * 60}")
-    print("Test Results:")
-    print(f"  Passed: {successes}/{num_runs}")
-    print(f"  Failed: {num_runs - successes}/{num_runs}")
-    print(f"  Pass Rate: {pass_rate:.1f}%")
-    print(f"{'=' * 60}")
+    """Run the data cleaning task"""
+    from task_framework import run_task
+    
+    print("Running Data Cleaning Challenge...")
+    pass_rate = run_task("data_cleaning", num_runs=10, max_steps=8, verbose_each=False)
+    
+    print(f"\nData Cleaning Task Pass Rate: {pass_rate:.1f}%")
+    if 10 <= pass_rate <= 40:
+        print("✓ Pass rate is in target range (10-40%)")
+    else:
+        print("✗ Pass rate is outside target range (10-40%)")
 
 
 if __name__ == "__main__":
