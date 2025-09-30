@@ -17,10 +17,10 @@ def get_resume(name: str) -> dict:
             "EXPERIENCE\n"
             "Acme Corp — Senior Software Engineer\n"
             "Jan 2019 – Present | San Francisco, CA\n"
-            "Built event-driven data platform (Python, Kafka, Airflow). Led 4 engineers.\n\n"
+            "Built event-driven data platform (Python, Kafka, Airflow). Led 4 engineers; reduced p95 latency by 35% and increased throughput 2x.\n\n"
             "Beta Labs | Software Engineer\n"
             "07/2016 to 12/2018  —  New York, NY\n"
-            "Developed REST APIs (Flask), CI/CD (CircleCI), and monitoring (Prometheus).\n\n"
+            "Developed REST APIs (Flask), CI/CD (CircleCI), and monitoring (Prometheus); cut deployment time by 40% and improved SLA to 99.9%.\n\n"
             "Education\n"
             "B.S. in Computer Science, University of California, Berkeley — 2012 – 2016\n\n"
             "SKILLS\n"
@@ -69,6 +69,9 @@ def get_prompt() -> str:
         "   - Use month-level precision (count months, then divide by 12)\n"
         "   - Include ongoing roles through the current date (use 2025-10)\n"
         "6) Extract a normalized skills list (lowercase strings).\n\n"
+        "7) For each work role, include a short description (1–2 sentences) summarizing responsibilities with action verbs (e.g., built, led, designed).\n"
+        "   - At least two roles must have a substantive description (≥ 40 chars)\n"
+        "   - At least one description should include a measurable impact (e.g., %, x, numbers, latency, throughput, cost). The second may be qualitative (e.g., improved efficiency/performance/reliability).\n\n"
         "Return JSON in this exact envelope:\n"
         "{\n"
         "  \"name\": string,\n"
@@ -192,6 +195,12 @@ def get_grader() -> callable:
                 # Fallback to minimal value to fail ordering check
                 return (0, 0)
 
+            desc_roles_ok = 0
+            numeric_roles_ok = 0
+            action_verbs = {"built","led","designed","implemented","developed","created","launched","owned","drove","migrated","optimized","reduced","increased","improved","scaled","automated"}
+            impact_tokens = {"%","percent","x","latency","throughput","sla","cost","revenue","users","requests","qps","rps","minutes","hours","ms","savings"}
+            qualitative_tokens = {"efficiency","performance","reliability","availability","scalability","stability"}
+            used_verbs: set[str] = set()
             for role in work:
                 if not all(k in role for k in ["employer", "title", "start_date", "end_date"]):
                     return False
@@ -209,21 +218,53 @@ def get_grader() -> callable:
                 # Basic non-empty employer/title
                 if not str(role["employer"]).strip() or not str(role["title"]).strip():
                     return False
+                # Require at least two roles to include substantive descriptions with verbs and measurable impact
+                desc = str(role.get("description",""))
+                dl = desc.strip().lower()
+                has_verb = any(v in dl for v in action_verbs)
+                has_numeric = bool(re.search(r"\d", dl)) or any(tok in dl for tok in impact_tokens)
+                has_qual = any(tok in dl for tok in qualitative_tokens)
+                if len(dl) >= 40 and has_verb and (has_numeric or has_qual):
+                    # track a verb hit to enforce diversity
+                    for v in action_verbs:
+                        if v in dl:
+                            used_verbs.add(v)
+                            break
+                    desc_roles_ok += 1
+                    if has_numeric:
+                        numeric_roles_ok += 1
 
-            # Section headers must include core ones (case-insensitive) and have at least 3 entries
-            headers = [str(h).lower() for h in result.get("section_headers", [])]
-            must_have = {"education", "experience", "skills"}
-            if not must_have.issubset(set(headers)) or len(set(headers)) < 3:
+            # Need two described roles, at least one numeric/quantified impact, and diversity of verbs
+            if desc_roles_ok < 2 or numeric_roles_ok < 1 or len(used_verbs) < 2:
                 return False
 
-            # Skills: require at least 7 unique, lowercase normalization tolerated (slightly stricter)
+            # Section headers must include core ones (case-insensitive) and have at least 4 entries (slightly stricter)
+            headers = [str(h).lower() for h in result.get("section_headers", [])]
+            must_have = {"education", "experience", "skills"}
+            if not must_have.issubset(set(headers)) or len(set(headers)) < 4:
+                return False
+
+            # Skills: require at least 8 unique, lowercase normalization tolerated (tiny bump in difficulty)
             skills = result.get("skills", [])
-            if not isinstance(skills, list) or len({str(s).lower() for s in skills}) < 7:
+            if not isinstance(skills, list) or len({str(s).lower() for s in skills}) < 8:
+                return False
+            # Skills taxonomy coverage: require breadth across domains
+            skills_text = [str(s).lower() for s in skills]
+            def has_any(candidates: set[str]) -> bool:
+                return any(any(token in s for token in candidates) for s in skills_text)
+            languages = {"python","go","java","javascript","typescript"}
+            cloud = {"aws","amazon web services","gcp","google cloud","azure","microsoft azure"}
+            data_eng = {"airflow","kafka","spark"}
+            containers = {"docker","kubernetes"}
+            if not (has_any(languages) and has_any(cloud) and has_any(data_eng) and has_any(containers)):
                 return False
 
             # Years experience: within tolerance of expected (resume_v1 known)
             expected_years = _compute_expected_years("")
             years = float(result.get("years_experience", 0))
+            # Years should be rounded to 1 decimal place
+            if abs((years * 10) - round(years * 10)) > 1e-6:
+                return False
             # Loosen band: pass if >= 7.4 and <= expected + 1.2 years
             if not (years >= 7.4 and years <= expected_years + 1.2):
                 return False
