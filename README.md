@@ -1,24 +1,32 @@
-hello-py
-===
+## How to Run Tasks
+### Run All Tasks
+```bash
+python main.py --all --runs 10
+```
 
-Setup instructions:
+### Run Individual Tasks
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/preferencemodel/hello-py.git
-   ```
+**Data Cleaning Task:**
+```bash
+python main.py --task data_cleaning --runs 10
+```
 
-2. Navigate to the project directory:
-   ```
-   cd hello-py
-   ```
+**Python Bug Detection Task:**
+```bash
+python main.py --task python_bug_finder --runs 10
+```
 
-3. Set up `ANTHROPIC_API_KEY` environment variable:
-   ```
+**Resume Parsing Task:**
+```bash
+python main.py --task resume_parser --runs 10
+```
 
-   ```
+**Email Triage Task:**
+```bash
+python main.py --task email_triage --runs 10
+```
 
-4. Run the agent:
-   ```
-   uv run main.py
-   ```
+**Commit Generator Task:**
+```bash
+python main.py --task commit_generator --runs 10
+```
