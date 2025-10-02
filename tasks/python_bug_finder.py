@@ -1,3 +1,10 @@
+"""
+2) Python Bug Detection and Code Analysis Task
+
+Task: Identify and fix bugs in Python code while maintaining functionality
+Domain: Software Engineering & Code Quality
+"""
+
 import json
 from typing import Any, Dict, List
 from anthropic.types import ToolUnionParam

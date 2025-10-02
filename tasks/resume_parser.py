@@ -1,3 +1,10 @@
+"""
+3) Resume Parsing and Information Extraction Task
+
+Task: Parse unstructured resume text and extract structured information
+Domain: Natural Language Processing & HR Technology
+"""
+
 import json
 import re
 from typing import Any, Dict, List
@@ -238,7 +245,7 @@ def get_grader() -> callable:
             if desc_roles_ok < 2 or numeric_roles_ok < 1 or len(used_verbs) < 2:
                 return False
 
-            # Section headers must include core ones (case-insensitive) and have at least 4 entries (slightly stricter)
+            # Section headers must include core ones (case-insensitive) and have at least 4 entries
             headers = [str(h).lower() for h in result.get("section_headers", [])]
             must_have = {"education", "experience", "skills"}
             if not must_have.issubset(set(headers)) or len(set(headers)) < 4:
@@ -265,8 +272,9 @@ def get_grader() -> callable:
             # Years should be rounded to 1 decimal place
             if abs((years * 10) - round(years * 10)) > 1e-6:
                 return False
-            # Loosen band: pass if >= 7.4 and <= expected + 1.2 years
-            if not (years >= 7.4 and years <= expected_years + 1.2):
+            # Fixed band: pass only if years is between 9.1 and 9.5. It acutally works wihtout this but to give it more 
+            # room for error
+            if not (years >= 9.1 and years <= 9.5):
                 return False
 
             return True

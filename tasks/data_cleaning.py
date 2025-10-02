@@ -1,3 +1,10 @@
+"""
+1) Data Cleaning and Analysis Task
+
+Task: Clean messy customer data and perform statistical analysis
+Domain: Data Processing & Analytics
+"""
+
 import json
 from typing import Any, Dict, List
 from anthropic.types import ToolUnionParam
