@@ -13,8 +13,14 @@ def main():
     parser.add_argument("--task", help="Specific task to run (data_cleaning, python_bug_finder, resume_parser, email_triage, commit_generator)")
     parser.add_argument("--runs", type=int, default=10, help="Number of runs per task (default: 10)")
     parser.add_argument("--all", action="store_true", help="Run all tasks")
+    parser.add_argument("--parallel", action="store_true", default=True, help="Enable parallel execution (default: True)")
+    parser.add_argument("--workers", type=int, default=2, help="Number of parallel workers (default: 2)")
+    parser.add_argument("--sequential", action="store_true", help="Force sequential execution")
     
     args = parser.parse_args()
+    
+    # Determine execution mode
+    parallel = args.parallel and not args.sequential
     
     if args.all:
         # Run all tasks
@@ -32,7 +38,7 @@ def main():
             print(f"Running task: {task}")
             print(f"{'='*80}")
             try:
-                pass_rate = run_task(task, args.runs)
+                pass_rate = run_task(task, args.runs, parallel=parallel, max_workers=args.workers)
                 results.append((task, pass_rate))
             except Exception as e:
                 print(f"Error running {task}: {e}")
@@ -48,7 +54,7 @@ def main():
     elif args.task:
         # Run specific task
         try:
-            pass_rate = run_task(args.task, args.runs)
+            pass_rate = run_task(args.task, args.runs, parallel=parallel, max_workers=args.workers)
             print(f"\nTask {args.task} pass rate: {pass_rate:.1f}%")
         except Exception as e:
             print(f"Error running task {args.task}: {e}")
