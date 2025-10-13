@@ -263,7 +263,7 @@ def run_single_task(task_name: str, run_id: int, prompt: str, tools: list, tool_
         return False, result
 
 
-def run_task(task_name: str, num_runs: int = 10, max_steps: int = 8, verbose_each: bool = False, parallel: bool = True, max_workers: int = 2):
+def run_task(task_name: str, num_runs: int = 10, max_steps: int = 12, verbose_each: bool = False, parallel: bool = True, max_workers: int = 2):
     """Run a specific task multiple times and report pass rate"""
     logger.info(f"Starting task {task_name} with {num_runs} runs (parallel={parallel})")
     
