@@ -201,6 +201,7 @@ def get_grader() -> callable:
             
             # Validate answer is a dictionary
             if not isinstance(result, dict):
+                print(f"❌ Answer is not a dictionary: {type(result)}")
                 return False
             
             # Validate required fields exist

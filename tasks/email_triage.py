@@ -15,6 +15,8 @@ def get_email_data(name: str) -> dict:
     """Returns email inbox data and automation rules"""
     if name == "inbox_v1":
         # 20 emails with varied content, senders, and edge cases
+        # I had LLM generate some of these emails, and tried adding my own emails
+        # I tried a grading scheme where I would look at key words
         emails = [
             {
                 "id": "email_001",
@@ -215,6 +217,46 @@ def get_email_data(name: str) -> dict:
                 "sender": "vip@client.com",
                 "date": "2025-01-15T11:00:00Z",
                 "read": False
+            },
+            {
+                "id": "email_026",
+                "subject": "URGENT: System maintenance tonight",
+                "body": "We need to perform critical system maintenance tonight. This is urgent and will affect all users.",
+                "sender": "it@company.com",
+                "date": "2025-01-15T14:00:00Z",
+                "read": False
+            },
+            {
+                "id": "email_027",
+                "subject": "Congratulations! You've been selected",
+                "body": "Congratulations! You've been selected for our exclusive program. Click here to claim your reward now!",
+                "sender": "rewards@external.com",
+                "date": "2025-01-15T13:30:00Z",
+                "read": False
+            },
+            {
+                "id": "email_028",
+                "subject": "Monthly Newsletter - February 2025",
+                "body": "Here's your monthly newsletter with company updates and news. Unsubscribe if you no longer wish to receive these.",
+                "sender": "newsletter@company.com",
+                "date": "2025-01-15T12:00:00Z",
+                "read": True
+            },
+            {
+                "id": "email_029",
+                "subject": "Deadline extension request",
+                "body": "Can we extend the deadline for the project? We need more time to complete the work.",
+                "sender": "pm@company.com",
+                "date": "2025-01-15T11:30:00Z",
+                "read": False
+            },
+            {
+                "id": "email_030",
+                "subject": "URGENT: Security breach detected",
+                "body": "We have detected a critical security breach. Immediate action required. This is urgent and affects all systems.",
+                "sender": "security@company.com",
+                "date": "2025-01-15T10:45:00Z",
+                "read": False
             }
         ]
         
@@ -237,70 +279,64 @@ def get_email_data(name: str) -> dict:
     
     return {"emails": [], "rules": {}}
 
-
+# This prompt is kinda long, the more rows the more tokens i would use so need to be careful with that
 def get_prompt() -> str:
     return """
 You are building an email automation system.
 
-Given:
-- 25 emails in inbox (JSON format with subject, body, sender, date)
-- Automation rules (JSON)
+IMPORTANT: You have exactly 12 steps maximum to complete this task. Plan your approach carefully and work efficiently.
 
-Task:
-Write Python code that:
-1. Reads all emails
-2. Categorizes each email (urgent, normal, spam, newsletter)
-3. Takes appropriate actions based on rules
-4. Generates summary report
+STEP-BY-STEP APPROACH:
+1. Use get_email_data(name='inbox_v1') to fetch the email data and rules
+2. Analyze the emails and apply categorization rules
+3. Generate the required output format
+4. Submit your final answer
 
-CATEGORIZATION RULES:
-- Urgent: Contains "urgent", "asap", "deadline" + from boss/client
-- Spam: From unknown sender + promotional language
-- Newsletter: Has "unsubscribe" link + marketing content
-- Normal: Everything else
+TASK:
+Process 30 emails and categorize them into 4 categories: urgent, normal, spam, newsletter.
 
-ACTIONS TO TAKE:
-- Urgent: Flag, move to "Urgent" folder, send notification
-- Spam: Delete permanently
-- Newsletter: Move to "Newsletters" folder
-- Normal: Keep in inbox
+STRICT CATEGORIZATION RULES:
+- URGENT: Must contain urgent keywords AND be from company domain OR be from VIP list
+  * Urgent keywords: "urgent", "asap", "deadline", "critical", "immediate"
+  * Company domain: @company.com
+  * VIP list: ["vip@client.com", "boss@company.com", "ceo@company.com"]
+- SPAM: Must contain spam keywords AND be from external domain (not @company.com)
+  * Spam keywords: "win", "congratulations", "click here", "act now", "limited time"
+- NEWSLETTER: Must contain "unsubscribe" in body
+- NORMAL: Everything else that doesn't fit above categories
 
-ADVANCED RULES:
-- If email chain has >5 messages, archive entire thread
-- If sender is VIP list, always mark urgent
-- If email is >7 days old and unread, archive
-- If subject contains [TICKET-####], extract ticket number
+CRITICAL REQUIREMENTS:
+- Must process EXACTLY 30 emails (no more, no less)
+- Must categorize ALL emails into exactly one category
+- Must use exact email IDs from the dataset
+- Must follow categorization rules precisely
+- Must handle edge cases correctly
 
-OUTPUT FORMAT:
+OUTPUT FORMAT (must be exact):
 {
-  "processed": 25,
+  "processed": 30,
   "categories": {
-    "urgent": [...email_ids...],
-    "normal": [...],
-    "spam": [...],
-    "newsletter": [...]
-  },
-  "actions_taken": {
-    "flagged": 5,
-    "deleted": 12,
-    "archived": 8,
-    "moved": 25
-  },
-  "tickets_found": ["TICKET-1234", "TICKET-5678"],
-  "errors": []
+    "urgent": ["email_001", "email_012", ...],
+    "normal": ["email_002", "email_011", ...],
+    "spam": ["email_003", "email_015", ...],
+    "newsletter": ["email_002", "email_014", ...]
+  }
 }
 
-REQUIREMENTS:
-- Must categorize ALL 25 emails
-- Must apply ALL rules correctly
-- Must handle malformed emails gracefully
-- Must extract ticket numbers with regex
-- Must respect VIP list priority
-- asnwer must be a valid python dictionary
+VALIDATION CRITERIA:
+- processed: Must equal 30
+- categories: Must contain exactly 4 keys: urgent, normal, spam, newsletter
+- Each email ID must appear in exactly one category
+- All 30 email IDs must be present
+- No extra or missing email IDs
 
-Use get_email_data(name='inbox_v1') to fetch the email data and rules.
-Then write and execute Python code to process all emails according to the rules.
-Finally, call submit_answer with your results.
+WORK EFFICIENTLY:
+- Use python_expression tool for processing
+- Validate each step before proceeding
+- Don't repeat the same operations
+- Focus on accuracy over speed
+
+Then call submit_answer with your complete result.
 """
 
 
@@ -359,13 +395,13 @@ def get_tool_handlers() -> Dict[str, callable]:
         "submit_answer": submit_answer_tool
     }
 
-
+# A parital score grader will probalby work better for this task since there are more valid solutions 
 def get_grader() -> callable:
     # Cache email data to avoid repeated calls
     _cached_email_data = None
     
-    def grade_email_triage_task(answer: Any) -> bool:
-        """Grade the email triage task result"""
+    def grade_email_triage_task(answer: Any) -> Dict[str, Any]:
+        """Intelligent grader with partial scoring and detailed feedback"""
         nonlocal _cached_email_data
         try:
             # Parse the answer
@@ -375,7 +411,11 @@ def get_grader() -> callable:
                 result = answer
             
             if not isinstance(result, dict):
-                return False
+                return {
+                    "passed": False,
+                    "score": 0,
+                    "feedback": "Answer is not a valid dictionary"
+                }
             
             # Get expected data for validation (cached)
             if _cached_email_data is None:
@@ -383,102 +423,292 @@ def get_grader() -> callable:
             emails = _cached_email_data["emails"]
             rules = _cached_email_data["rules"]
             
-            # Check 1: Must process all 25 emails
-            if result.get("processed") != 25:
-                print(f"Processed {result.get('processed')} emails, expected 25")
-                return False
+            # Initialize scoring
+            scores = {
+                "structure": 0,
+                "categorization": 0,
+                "actions": 0,
+                "tickets": 0,
+                "completeness": 0
+            }
             
-            # Check 2: Must have all required categories
-            categories = result.get("categories", {})
-            required_cats = {"urgent", "normal", "spam", "newsletter"}
-            missing_cats = required_cats - set(categories.keys())
-            if missing_cats:
-                print(f"Missing categories: {missing_cats}")
-                return False
+            feedback = {
+                "errors": [],
+                "warnings": [],
+                "suggestions": []
+            }
             
-            # Check 3: All email IDs must be categorized
-            all_categorized = set()
-            for cat_emails in categories.values():
-                if isinstance(cat_emails, list):
-                    all_categorized.update(cat_emails)
+            # 1. Structure Validation (30 points)
+            structure_score = validate_structure(result, feedback)
+            scores["structure"] = structure_score
             
-            expected_ids = {email["id"] for email in emails}
-            missing_ids = expected_ids - all_categorized
-            extra_ids = all_categorized - expected_ids
-            if missing_ids or extra_ids:
-                print(f"Missing IDs: {missing_ids}, Extra IDs: {extra_ids}")
-                return False
+            # 2. Completeness Check (40 points)
+            completeness_score = validate_completeness(result, emails, feedback)
+            scores["completeness"] = completeness_score
             
-            # Check 4: Categorization accuracy - simplified validation
-            expected_urgent = set()
-            expected_spam = set()
-            expected_newsletter = set()
+            # 3. Categorization Accuracy (30 points)
+            categorization_score = validate_categorization(result, emails, rules, feedback)
+            scores["categorization"] = categorization_score
             
-            for email in emails:
-                subject_lower = email["subject"].lower()
-                body_lower = email["body"].lower()
-                sender = email["sender"]
-                
-                # VIP list check
-                if sender in rules["vip_list"]:
-                    expected_urgent.add(email["id"])
-                # Urgent keywords (priority over spam)
-                elif any(keyword in subject_lower or keyword in body_lower for keyword in rules["urgent_keywords"]):
-                    expected_urgent.add(email["id"])
-                # Spam keywords (only if not urgent)
-                elif any(keyword in subject_lower or keyword in body_lower for keyword in rules["spam_keywords"]):
-                    expected_spam.add(email["id"])
-                # Newsletter keywords
-                elif any(keyword in body_lower for keyword in rules["newsletter_keywords"]):
-                    expected_newsletter.add(email["id"])
+            # Calculate overall score
+            total_score = sum(scores.values())
             
-            # Check categorization accuracy (simplified)
-            actual_urgent = set(categories.get("urgent", []))
-            actual_spam = set(categories.get("spam", []))
-            actual_newsletter = set(categories.get("newsletter", []))
+            # Determine PASS OR FAIL based on total score only
+            passed = total_score >= 80
             
-            # Require at least 75% accuracy for urgent/newsletter, 60% for spam
-            urgent_accuracy = len(actual_urgent & expected_urgent) / len(expected_urgent) if expected_urgent else 1.0
-            spam_accuracy = len(actual_spam & expected_spam) / len(expected_spam) if expected_spam else 1.0
-            newsletter_accuracy = len(actual_newsletter & expected_newsletter) / len(expected_newsletter) if expected_newsletter else 1.0
             
-            if urgent_accuracy < 0.75:
-                print(f"Urgent accuracy {urgent_accuracy:.1%} below 75% threshold")
-                return False
-            if spam_accuracy < 0.6:  # Lower threshold for more variation
-                print(f"Spam accuracy {spam_accuracy:.1%} below 60% threshold")
-                return False
-            if newsletter_accuracy < 0.75:
-                print(f"Newsletter accuracy {newsletter_accuracy:.1%} below 75% threshold")
-                return False
-            
-            # Check 5: Basic structure validation
-            actions = result.get("actions_taken", {})
-            if not isinstance(actions, dict):
-                print("Actions taken is not a dictionary")
-                return False
-            if not isinstance(result.get("tickets_found", []), list):
-                print("Tickets found is not a list")
-                return False
-            
-            # Check 6: Ticket extraction (simplified)
-            tickets_found = result.get("tickets_found", [])
-            expected_tickets = []
-            for email in emails:
-                ticket_match = re.search(r'\[TICKET-(\d+)\]', email["subject"])
-                if ticket_match:
-                    expected_tickets.append(f"TICKET-{ticket_match.group(1)}")
-            
-            # Must find at least 80% of expected tickets
-            if len(tickets_found) < len(expected_tickets) * 0.8:
-                print(f"Ticket accuracy {len(tickets_found)}/{len(expected_tickets)} below 80% threshold")
-                return False
-            
-            print(" ALL CHECKS PASSED!")
-            return True
+            return {
+                "passed": passed,
+                "score": total_score,
+                "breakdown": scores,
+                "feedback": feedback,
+                "detailed_analysis": generate_detailed_analysis(result, emails, rules)
+            }
             
         except Exception as e:
-            print(f"Exception during grading: {e}")
-            return False
+            return {
+                "passed": False,
+                "score": 0,
+                "feedback": {"errors": [f"Exception during grading: {e}"]}
+            }
     
     return grade_email_triage_task
+
+def validate_structure(result: Dict, feedback: Dict) -> int:
+    """Validate basic structure (30 points)"""
+    score = 30
+    
+    # Check required fields
+    required_fields = ["processed", "categories"]
+    for field in required_fields:
+        if field not in result:
+            feedback["errors"].append(f"Missing required field: {field}")
+            score -= 15
+    
+    # Check data types
+    if not isinstance(result.get("categories", {}), dict):
+        feedback["errors"].append("Categories must be a dictionary")
+        score -= 15
+    
+    # Check processed count is integer
+    if not isinstance(result.get("processed"), int):
+        feedback["errors"].append("Processed count must be an integer")
+        score -= 10
+    
+    return max(0, score)
+
+def validate_completeness(result: Dict, emails: List[Dict], feedback: Dict) -> int:
+    """Validate completeness (40 points)"""
+    score = 40
+    
+    # Check processed count - moderately stricter penalties
+    expected_count = len(emails)
+    actual_count = result.get("processed", 0)
+    if actual_count != expected_count:
+        diff = abs(actual_count - expected_count)
+        if diff == 1:
+            score -= 8  # Moderate penalty for 1 off
+            feedback["warnings"].append(f"Processed {actual_count} emails, expected {expected_count}")
+        elif diff <= 3:
+            score -= 12  # Medium penalty for 2-3 off
+            feedback["warnings"].append(f"Processed {actual_count} emails, expected {expected_count}")
+        else:
+            score -= 20  # Large penalty for 4+ off
+            feedback["errors"].append(f"Processed {actual_count} emails, expected {expected_count}")
+    
+    # Check all emails are categorized - partial credit
+    categories = result.get("categories", {})
+    all_categorized = set()
+    for cat_emails in categories.values():
+        if isinstance(cat_emails, list):
+            all_categorized.update(cat_emails)
+    
+    expected_ids = {email["id"] for email in emails}
+    missing_ids = expected_ids - all_categorized
+    extra_ids = all_categorized - expected_ids
+    
+    # Partial credit for missing emails
+    if missing_ids:
+        missing_count = len(missing_ids)
+        if missing_count == 1:
+            score -= 3  # Small penalty
+            feedback["warnings"].append(f"Missing 1 email: {list(missing_ids)[0]}")
+        elif missing_count <= 3:
+            score -= 6  # Medium penalty
+            feedback["warnings"].append(f"Missing {missing_count} emails: {list(missing_ids)[:3]}")
+        else:
+            score -= 10  # Large penalty
+            feedback["errors"].append(f"Missing {missing_count} emails: {list(missing_ids)[:3]}")
+    
+    # Partial credit for extra emails
+    if extra_ids:
+        extra_count = len(extra_ids)
+        if extra_count == 1:
+            score -= 2  # Small penalty
+            feedback["warnings"].append(f"Extra 1 email: {list(extra_ids)[0]}")
+        elif extra_count <= 3:
+            score -= 4  # Medium penalty
+            feedback["warnings"].append(f"Extra {extra_count} emails: {list(extra_ids)[:3]}")
+        else:
+            score -= 8  # Large penalty
+            feedback["errors"].append(f"Extra {extra_count} emails: {list(extra_ids)[:3]}")
+    
+    return max(0, score)
+
+def validate_categorization(result: Dict, emails: List[Dict], rules: Dict, feedback: Dict) -> int:
+    """Validate categorization accuracy (30 points)"""
+    score = 30
+    
+    categories = result.get("categories", {})
+    required_cats = {"urgent", "normal", "spam", "newsletter"}
+    missing_cats = required_cats - set(categories.keys())
+    
+    if missing_cats:
+        feedback["errors"].append(f"Missing categories: {missing_cats}")
+        score -= 8  # Reduced penalty
+    
+    # Calculate expected categorizations
+    expected_categories = calculate_expected_categories(emails, rules)
+    
+    # Score each category with partial credit
+    total_correct = 0
+    total_expected = 0
+    category_scores = {}
+    
+    for category in required_cats:
+        if category in categories:
+            expected = expected_categories[category]
+            actual = set(categories[category])
+            
+            correct = len(actual & expected)
+            total_correct += correct
+            total_expected += len(expected)
+            
+            # Calculate category accuracy
+            if len(expected) > 0:
+                category_accuracy = correct / len(expected)
+                category_scores[category] = category_accuracy
+                
+                # Moderately stricter scoring based on accuracy
+                if category_accuracy >= 0.9:
+                    # Full credit for good accuracy
+                    pass
+                elif category_accuracy >= 0.75:
+                    # Small penalty for moderate accuracy
+                    score -= 3
+                    feedback["warnings"].append(f"{category} accuracy: {category_accuracy:.1%}")
+                elif category_accuracy >= 0.6:
+                    # Medium penalty for poor accuracy
+                    score -= 6
+                    feedback["warnings"].append(f"{category} accuracy: {category_accuracy:.1%}")
+                else:
+                    # Major penalty for very poor accuracy
+                    score -= 8
+                    feedback["errors"].append(f"{category} accuracy: {category_accuracy:.1%}")
+            
+            # Check for major errors (emails in wrong category)
+            incorrect = actual - expected
+            if incorrect:
+                feedback["warnings"].append(f"{category} incorrectly includes: {list(incorrect)[:3]}")
+                score -= 1  # Small penalty per error
+    
+    # Overall accuracy bonus/penalty - moderately stricter
+    if total_expected > 0:
+        accuracy = total_correct / total_expected
+        if accuracy >= 0.95:
+            # Bonus for excellent accuracy
+            score += 2
+        elif accuracy >= 0.85:
+            # Good accuracy
+            pass
+        elif accuracy >= 0.75:
+            # Moderate penalty
+            score -= 4
+            feedback["warnings"].append(f"Overall accuracy: {accuracy:.1%}")
+        else:
+            # Major penalty
+            score -= 8
+            feedback["errors"].append(f"Overall accuracy: {accuracy:.1%}")
+    
+    return max(0, score)
+
+
+def calculate_expected_categories(emails: List[Dict], rules: Dict) -> Dict[str, set]:
+    """Calculate expected email categorizations"""
+    expected = {
+        "urgent": set(),
+        "spam": set(),
+        "newsletter": set(),
+        "normal": set()
+    }
+    
+    for email in emails:
+        subject_lower = email["subject"].lower()
+        body_lower = email["body"].lower()
+        sender = email["sender"]
+        
+        # VIP list check (highest priority)
+        if sender in rules["vip_list"]:
+            expected["urgent"].add(email["id"])
+        # Urgent keywords
+        elif any(keyword in subject_lower or keyword in body_lower for keyword in rules["urgent_keywords"]):
+            expected["urgent"].add(email["id"])
+        # Spam keywords (only if not urgent)
+        elif any(keyword in subject_lower or keyword in body_lower for keyword in rules["spam_keywords"]):
+            expected["spam"].add(email["id"])
+        # Newsletter keywords
+        elif any(keyword in body_lower for keyword in rules["newsletter_keywords"]):
+            expected["newsletter"].add(email["id"])
+        # Everything else is normal
+        else:
+            expected["normal"].add(email["id"])
+    
+    return expected
+
+def calculate_expected_actions(categories: Dict, rules: Dict) -> Dict[str, int]:
+    """Calculate expected action counts"""
+    return {
+        "flagged": len(categories.get("urgent", [])),
+        "deleted": len(categories.get("spam", [])),
+        "moved": len(categories.get("newsletter", [])),
+        "archived": 0  # Based on age rules
+    }
+
+def generate_detailed_analysis(result: Dict, emails: List[Dict], rules: Dict) -> Dict:
+    """Generate detailed analysis for feedback"""
+    analysis = {
+        "email_breakdown": {},
+        "rule_application": {},
+        "performance_metrics": {}
+    }
+    
+    # Analyze each email
+    for email in emails:
+        email_id = email["id"]
+        analysis["email_breakdown"][email_id] = {
+            "subject": email["subject"],
+            "sender": email["sender"],
+            "categorized_as": "unknown",
+            "expected_category": "unknown",
+            "correct": False
+        }
+    
+    # Fill in actual categorizations
+    categories = result.get("categories", {})
+    for category, email_ids in categories.items():
+        for email_id in email_ids:
+            if email_id in analysis["email_breakdown"]:
+                analysis["email_breakdown"][email_id]["categorized_as"] = category
+    
+    # Calculate expected categorizations
+    expected_categories = calculate_expected_categories(emails, rules)
+    for category, email_ids in expected_categories.items():
+        for email_id in email_ids:
+            if email_id in analysis["email_breakdown"]:
+                analysis["email_breakdown"][email_id]["expected_category"] = category
+                analysis["email_breakdown"][email_id]["correct"] = (
+                    analysis["email_breakdown"][email_id]["categorized_as"] == category
+                )
+    
+    return analysis
+
