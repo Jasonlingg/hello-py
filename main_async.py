@@ -25,7 +25,7 @@ async def main():
             await run_all_tasks_async(available_tasks, num_runs)
         else:
             task_name = sys.argv[1]
-            num_runs = int(sys.argv[2]) if len(sys.argv) > 2 else 3
+            num_runs = int(sys.argv[2]) if len(sys.argv) > 2 else 5
             await run_task_async(task_name, num_runs)
     else:
         # Interactive mode
@@ -37,11 +37,11 @@ async def main():
         choice = input("Select task (1-6): ").strip()
         
         if choice == "6":
-            num_runs = int(input("Number of runs per task (default 2): ") or "2")
+            num_runs = int(input("Number of runs per task (default 3): ") or "3")
             await run_all_tasks_async(available_tasks, num_runs)
         elif choice.isdigit() and 1 <= int(choice) <= 5:
             task_name = available_tasks[int(choice) - 1]
-            num_runs = int(input(f"Number of runs for {task_name} (default 3): ") or "3")
+            num_runs = int(input(f"Number of runs for {task_name} (default 5): ") or "5")
             await run_task_async(task_name, num_runs)
         else:
             print("❌ Invalid choice")
