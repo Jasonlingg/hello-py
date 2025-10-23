@@ -4,12 +4,11 @@ Simple async task runner using the clean task framework
 """
 
 import asyncio
+import argparse
 from task_framework import run_task_async, run_all_tasks_async
 
 async def main():
     """Main function"""
-    import sys
-    
     # Available tasks
     available_tasks = [
         "data_cleaning",
@@ -19,14 +18,17 @@ async def main():
         "commit_generator"
     ]
     
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "all":
-            num_runs = int(sys.argv[2]) if len(sys.argv) > 2 else 3
-            await run_all_tasks_async(available_tasks, num_runs)
+    parser = argparse.ArgumentParser(description="Run tasks using the clean task framework")
+    parser.add_argument("--task", "-t", help="Task name to run", choices=available_tasks + ["all"])
+    parser.add_argument("--runs", "-r", type=int, default=3, help="Number of runs (default: 3)")
+    
+    args = parser.parse_args()
+    
+    if args.task:
+        if args.task == "all":
+            await run_all_tasks_async(available_tasks, args.runs)
         else:
-            task_name = sys.argv[1]
-            num_runs = int(sys.argv[2]) if len(sys.argv) > 2 else 3
-            await run_task_async(task_name, num_runs)
+            await run_task_async(args.task, args.runs)
     else:
         # Interactive mode
         print("🎯 Available tasks:")

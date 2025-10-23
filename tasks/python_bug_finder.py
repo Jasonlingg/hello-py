@@ -10,7 +10,10 @@ from typing import Any, Dict, List
 from anthropic.types import ToolUnionParam
 from task_framework import python_expression_tool, submit_answer_tool
 
-
+# This method returns buggy code that needs to be fixed
+# I tried making bugs but it is kinda hard to make bugs that are not obvious to the LLM
+# so it was mostly alot of inefficiencies and edge cases that I wanted it to find
+# Need more time to test and research what type of bugs LLM has trouble with
 def get_buggy_code(name: str) -> dict:
     """Returns Python code with various bugs"""
     if name == "code_v1":
@@ -114,7 +117,10 @@ def is_anagram(s, t):
         }
     return {"code": ""}
 
-
+# Its a solid prompt but its hard oteh LLM to know if a bug is high vs low severity, even as humans its hard to know
+# should of given some edge cases and boundary conditions to run it on 
+# from my experiecne from LLM's doing these Leetcode problems, they dont do well on edge cases and boundary conditions,
+# so sometimes you need to give it an edge case 
 def get_prompt() -> str:
     return """You are given Python code containing LeetCode-style problems with bugs. Analyze the code to identify algorithmic and logic errors.
 
@@ -137,7 +143,8 @@ def get_prompt() -> str:
 
 Then call submit_answer with that JSON."""
 
-
+# these tools are actually fine, because the core tools do everything wee need them to do, which is jsut to test the functions and submit
+# could maybe work on the tools descriptions for the model
 def get_tools() -> List[ToolUnionParam]:
     return [
         {
@@ -174,7 +181,9 @@ def get_tools() -> List[ToolUnionParam]:
         },
     ]
 
-
+# purpose of the get tool handles is to map toools names to theri halder functions, and in task)_framwork it is called
+# tje tools are kinda one size fits all for all of the 5 tasks. Whcih maybe is  nto the best design choice since each task coudl 
+# have different tools that hlep with diifferent tasks
 def get_tool_handlers() -> Dict[str, Any]:
     return {
         "python_expression": python_expression_tool,
@@ -182,9 +191,9 @@ def get_tool_handlers() -> Dict[str, Any]:
         "submit_answer": submit_answer_tool,
     }
 
-
+# grader is pretty standard, but could be improved to give more detailed feedback and more points for each bug
 def get_grader() -> callable:
-    def grade_python_bug_finder_task(answer: Any) -> bool:
+    def grade_python_bug_finder_task(answer: Any, steps_used: int = None) -> bool:
         """Grade the Python bug finder task result"""
         try:
             # Parse the answer
@@ -194,6 +203,7 @@ def get_grader() -> callable:
                 result = answer
             
             if not isinstance(result, dict) or "bugs" not in result:
+                print(f"❌ Invalid answer format: {result}")
                 return False
             
             bugs = result["bugs"]

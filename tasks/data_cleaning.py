@@ -190,7 +190,7 @@ def get_tool_handlers() -> Dict[str, Any]:
 
 
 def get_grader() -> callable:
-    def grade_data_cleaning_task(answer: Any) -> bool:
+    def grade_data_cleaning_task(answer: Any, steps_used: int = None) -> bool:
         """Grade the comprehensive data cleaning task result"""
         try:
             # Parse the answer

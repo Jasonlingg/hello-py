@@ -50,7 +50,7 @@ async def run_agent_loop(
     max_steps: int = 20,
     model: str = "claude-3-5-haiku-latest",
     verbose: bool = True,
-) -> Any | None:
+) -> tuple[Any | None, int]:
     """
     Runs an agent loop with the given prompt and tools.
 
@@ -63,7 +63,7 @@ async def run_agent_loop(
         verbose: Whether to print detailed output (default True)
 
     Returns:
-        The submitted answer if submit_answer was called, otherwise None
+        Tuple of (final result from the agent, number of steps used)
     """
     client = AsyncAnthropic()
     messages: list[MessageParam] = [{"role": "user", "content": prompt}]
@@ -147,7 +147,7 @@ async def run_agent_loop(
             if submitted_answer is not None:
                 if verbose:
                     print(f"\nAgent submitted answer: {submitted_answer}")
-                return submitted_answer
+                return submitted_answer, step + 1
         else:
             # No tool use, conversation might be complete
             if verbose:
@@ -156,7 +156,7 @@ async def run_agent_loop(
 
     if verbose:
         print(f"\nReached maximum steps ({max_steps}) without submitting answer.")
-    return None
+    return None, max_steps
 
 
 async def run_single_test(
@@ -165,13 +165,13 @@ async def run_single_test(
     prompt: str,
     tools: list[ToolUnionParam],
     tool_handlers: dict[str, Callable[..., Any]],
-    grader: Callable[[Any], bool],
+    grader: Callable[[Any, int], bool],
     verbose: bool = False,
 ) -> tuple[int, bool, Any]:
     if verbose:
         print(f"\n\n{'=' * 20} RUN {run_id}/{num_runs} {'=' * 20}")
 
-    result = await run_agent_loop(
+    result, steps_used = await run_agent_loop(
         prompt=prompt,
         tools=tools,
         tool_handlers=tool_handlers,
@@ -180,9 +180,9 @@ async def run_single_test(
     )
 
     # Debug: Show what the LLM actually returned
-    print(f"🔍 Run {run_id} LLM result: {result}")
+    print(f"🔍 Run {run_id} LLM result: {result} (used {steps_used} steps)")
     
-    grader_result = grader(result)
+    grader_result = grader(result, steps_used)
     
     # Handle different grader return types
     if isinstance(grader_result, dict):

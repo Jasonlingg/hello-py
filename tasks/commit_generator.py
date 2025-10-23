@@ -658,7 +658,7 @@ def get_tool_handlers() -> Dict[str, callable]:
 
 
 def get_grader() -> callable:
-    def grade_commit_generator_task(answer: Any) -> bool:
+    def grade_commit_generator_task(answer: Any, steps_used: int = None) -> bool:
         """Grade the commit generator task result"""
         try:
             # Parse the answer

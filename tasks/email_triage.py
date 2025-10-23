@@ -284,13 +284,31 @@ def get_prompt() -> str:
     return """
 You are building an email automation system.
 
-IMPORTANT: You have exactly 12 steps maximum to complete this task. Plan your approach carefully and work efficiently.
+IMPORTANT: You have exactly 12 steps maximum to complete this task. 
+BONUS: You can earn up to 10 extra points for completing the task efficiently!
 
-STEP-BY-STEP APPROACH:
+EFFICIENCY GUIDANCE:
+- Plan your approach before starting
+- Use python_expression tool strategically
+- Batch similar operations together
+- Validate results efficiently
+- Aim to complete in 6 steps or fewer for maximum bonus
+
+STEP-BY-STEP APPROACH (Use Chain of Thought):
 1. Use get_email_data(name='inbox_v1') to fetch the email data and rules
-2. Analyze the emails and apply categorization rules
-3. Generate the required output format
-4. Submit your final answer
+2. **THINK STEP BY STEP**: Analyze each email systematically
+   - For each email, explain your reasoning process
+   - Show which rules apply and why
+   - Consider edge cases and conflicts
+3. **SHOW YOUR WORK**: Use python_expression to demonstrate your logic
+4. Generate the required output format
+5. Submit your final answer
+
+CHAIN OF THOUGHT REQUIREMENTS:
+- Explain your reasoning for each categorization decision
+- Show intermediate steps and calculations
+- Consider multiple factors before making decisions
+- Validate your choices against the rules
 
 TASK:
 Process 30 emails and categorize them into 4 categories: urgent, normal, spam, newsletter.
@@ -320,7 +338,8 @@ OUTPUT FORMAT (must be exact):
     "normal": ["email_002", "email_011", ...],
     "spam": ["email_003", "email_015", ...],
     "newsletter": ["email_002", "email_014", ...]
-  }
+  },
+  "reasoning": "Step-by-step explanation of your categorization decisions, rule applications, and edge case considerations"
 }
 
 VALIDATION CRITERIA:
@@ -400,7 +419,7 @@ def get_grader() -> callable:
     # Cache email data to avoid repeated calls
     _cached_email_data = None
     
-    def grade_email_triage_task(answer: Any) -> Dict[str, Any]:
+    def grade_email_triage_task(answer: Any, steps_used: int = None) -> Dict[str, Any]:
         """Intelligent grader with partial scoring and detailed feedback"""
         nonlocal _cached_email_data
         try:
@@ -438,19 +457,27 @@ def get_grader() -> callable:
                 "suggestions": []
             }
             
-            # 1. Structure Validation (30 points)
+            # 1. Structure Validation (25 points)
             structure_score = validate_structure(result, feedback)
             scores["structure"] = structure_score
             
-            # 2. Completeness Check (40 points)
+            # 2. Completeness Check (35 points)
             completeness_score = validate_completeness(result, emails, feedback)
             scores["completeness"] = completeness_score
             
-            # 3. Categorization Accuracy (30 points)
+            # 3. Categorization Accuracy (25 points)
             categorization_score = validate_categorization(result, emails, rules, feedback)
             scores["categorization"] = categorization_score
             
-            # Calculate overall score
+            # 4. Chain of Thought Quality (15 points)
+            cot_score = validate_chain_of_thought(result, feedback)
+            scores["chain_of_thought"] = cot_score
+            
+            # 5. Efficiency Bonus (10 points)
+            efficiency_score = calculate_efficiency_bonus(steps_used, feedback)
+            scores["efficiency"] = efficiency_score
+            
+            # Calculate overall score (now out of 110)
             total_score = sum(scores.values())
             
             # Determine PASS OR FAIL based on total score only
@@ -479,11 +506,11 @@ def validate_structure(result: Dict, feedback: Dict) -> int:
     score = 30
     
     # Check required fields
-    required_fields = ["processed", "categories"]
+    required_fields = ["processed", "categories", "reasoning"]
     for field in required_fields:
         if field not in result:
             feedback["errors"].append(f"Missing required field: {field}")
-            score -= 15
+            score -= 8
     
     # Check data types
     if not isinstance(result.get("categories", {}), dict):
@@ -632,6 +659,74 @@ def validate_categorization(result: Dict, emails: List[Dict], rules: Dict, feedb
     
     return max(0, score)
 
+def validate_chain_of_thought(result: Dict, feedback: Dict) -> int:
+    """Validate Chain of Thought quality (15 points)"""
+    score = 15
+    
+    # Check if reasoning is provided
+    reasoning = result.get("reasoning", "")
+    if not reasoning:
+        feedback["warnings"].append("No reasoning provided - Chain of Thought missing")
+        score -= 10
+        return max(0, score)
+    
+    # Check for step-by-step analysis
+    if "step" in reasoning.lower() or "analyze" in reasoning.lower():
+        pass  # Good
+    else:
+        feedback["warnings"].append("Missing step-by-step analysis")
+        score -= 3
+    
+    # Check for rule application
+    if any(keyword in reasoning.lower() for keyword in ["rule", "keyword", "domain", "vip"]):
+        pass  # Good
+    else:
+        feedback["warnings"].append("Missing rule application explanation")
+        score -= 3
+    
+    # Check for edge case consideration
+    if any(keyword in reasoning.lower() for keyword in ["edge", "conflict", "consider", "validate"]):
+        pass  # Good
+    else:
+        feedback["warnings"].append("Missing edge case consideration")
+        score -= 2
+    
+    # Check for intermediate calculations
+    if any(keyword in reasoning.lower() for keyword in ["calculate", "count", "check", "verify"]):
+        pass  # Good
+    else:
+        feedback["warnings"].append("Missing intermediate calculations")
+        score -= 2
+    
+    return max(0, score)
+
+def calculate_efficiency_bonus(steps_used: int, feedback: Dict) -> int:
+    """Calculate efficiency bonus based on steps used (10 points max)"""
+    if steps_used is None:
+        feedback["warnings"].append("Step count not provided")
+        return 0
+    
+    # Efficiency tiers
+    if steps_used <= 4:
+        # Excellent efficiency
+        feedback["suggestions"].append(f"Excellent efficiency: completed in {steps_used} steps")
+        return 10
+    elif steps_used <= 6:
+        # Good efficiency  
+        feedback["suggestions"].append(f"Good efficiency: completed in {steps_used} steps")
+        return 7
+    elif steps_used <= 8:
+        # Moderate efficiency
+        feedback["suggestions"].append(f"Moderate efficiency: completed in {steps_used} steps")
+        return 4
+    elif steps_used <= 10:
+        # Acceptable efficiency
+        feedback["suggestions"].append(f"Acceptable efficiency: completed in {steps_used} steps")
+        return 2
+    else:
+        # Poor efficiency (11-12 steps)
+        feedback["warnings"].append(f"Poor efficiency: used {steps_used} steps")
+        return 0
 
 def calculate_expected_categories(emails: List[Dict], rules: Dict) -> Dict[str, set]:
     """Calculate expected email categorizations"""

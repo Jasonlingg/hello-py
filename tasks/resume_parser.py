@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 from anthropic.types import ToolUnionParam
 from task_framework import python_expression_tool, submit_answer_tool
 
-
+# Test core NLP skills and parsing skills liek infroamtion extraciton from unstructured text adn entity recognition , being able to recognize that is is a company, thsi is a name, etc
 def get_resume(name: str) -> dict:
     """Returns unstructured resume text for parsing."""
     if name == "resume_v1":
@@ -159,7 +159,7 @@ def _compute_expected_years(text: str) -> float:
 
 
 def get_grader() -> callable:
-    def grade_resume_task(answer: Any) -> bool:
+    def grade_resume_task(answer: Any, steps_used: int = None) -> bool:
         try:
             result = json.loads(answer) if isinstance(answer, str) else answer
             if not isinstance(result, dict):
