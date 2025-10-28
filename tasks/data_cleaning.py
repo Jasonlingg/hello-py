@@ -220,7 +220,7 @@ def get_grader() -> callable:
                     return False
             
             # Get the actual dataset and compute expected answers dynamically
-            from .data_helpers import parse_csv_data, analyze_dataset_quality
+            from ..helpers.data_helpers import parse_csv_data, analyze_dataset_quality
             
             dataset = get_dirty_data('customers_v1')['data']
             rows = parse_csv_data(dataset)
