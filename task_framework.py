@@ -8,7 +8,8 @@ from typing import Any, Callable, TypedDict
 from anthropic import AsyncAnthropic
 from anthropic.types import MessageParam, ToolUnionParam
 
-
+#  defines the return type of the tool 
+# TypedDict is a dictionary with typed keys and values to prevent bugs and type errors
 class PythonExpressionToolResult(TypedDict):
     result: Any
     error: str | None
@@ -18,22 +19,42 @@ class SubmitAnswerToolResult(TypedDict):
     answer: Any
     submitted: bool
 
+# Global namespace that persists across all python_expression calls
+_global_namespace = {}
 
+# This is the primary tool that the LLM will use to execute Python code
 def python_expression_tool(expression: str) -> PythonExpressionToolResult:
     """
     Tool that evaluates Python expressions using exec.
     Use print(...) to emit output; stdout will be captured and returned.
+    
+    State persists between calls:
+    - Variables stay in memory
+    - Models stay loaded
+    - Data stays cached
+    - Trained weights persist
     """
     try:
-        namespace = {}
+        # Use global namespace that persists across calls
+        # This allows building up state (loading data, training models, etc.)
+        global _global_namespace
+        
+        # Capture stdout for print statements
         stdout = StringIO()
         with redirect_stdout(stdout):
-            exec(expression, namespace, namespace)
+            # Provide builtins to the exec environment
+            exec_env = {"__builtins__": __builtins__}
+            exec(expression, exec_env, _global_namespace)
         return {"result": stdout.getvalue(), "error": None}
     except KeyboardInterrupt:
         raise
     except Exception as e:
         return {"result": None, "error": str(e)}
+
+def reset_namespace():
+    """Reset the global namespace (for testing)"""
+    global _global_namespace
+    _global_namespace = {}
 
 
 def submit_answer_tool(answer: Any) -> SubmitAnswerToolResult:
@@ -47,7 +68,7 @@ async def run_agent_loop(
     prompt: str,
     tools: list[ToolUnionParam],
     tool_handlers: dict[str, Callable[..., Any]],
-    max_steps: int = 20,
+    max_steps: int = 12,
     model: str = "claude-3-5-haiku-latest",
     verbose: bool = True,
 ) -> tuple[Any | None, int]:
@@ -65,15 +86,18 @@ async def run_agent_loop(
     Returns:
         Tuple of (final result from the agent, number of steps used)
     """
+    
+    # create a client to interact with the Anthropic API
     client = AsyncAnthropic()
+    # list of messages to send to the LLM and feed the initial observation to the LLM
     messages: list[MessageParam] = [{"role": "user", "content": prompt}]
-
+    #
     for step in range(max_steps):
         if verbose:
             print(f"\n=== Step {step + 1}/{max_steps} ===")
 
         response = await client.messages.create(
-            model=model, max_tokens=1000, tools=tools, messages=messages
+            model=model, max_tokens=800, tools=tools, messages=messages
         )
 
         # Track if we need to continue
@@ -83,6 +107,9 @@ async def run_agent_loop(
 
         # Process the response
         for content in response.content:
+            # there are ONLY two types of messages that anthropic can return:
+            # TEXT and TOOL USE (which is a tool call) so we need to handle both cases
+            # response content is the list of parts claude has generated for each step   
             if content.type == "text":
                 if verbose:
                     print(f"Assistant: {content.text}")
@@ -95,9 +122,9 @@ async def run_agent_loop(
                         print(f"Using tool: {tool_name}")
 
                     # Extract arguments based on tool
-                    handler = tool_handlers[tool_name]
-                    tool_input = content.input
-
+                    handler = tool_handlers[tool_name] # extract the handler function for the tool
+                    tool_input = content.input # extract the arguments/parameters for the tool
+                    
                     # Call the appropriate tool handler
                     if tool_name == "python_expression":
                         if isinstance(tool_input, dict) and "expression" in tool_input:
@@ -158,7 +185,7 @@ async def run_agent_loop(
         print(f"\nReached maximum steps ({max_steps}) without submitting answer.")
     return None, max_steps
 
-
+# This runs one episode of the task and grades the result
 async def run_single_test(
     run_id: int,
     num_runs: int,
@@ -170,28 +197,34 @@ async def run_single_test(
 ) -> tuple[int, bool, Any]:
     if verbose:
         print(f"\n\n{'=' * 20} RUN {run_id}/{num_runs} {'=' * 20}")
+    
+    # Reset namespace at the start of each test run
+    # This ensures clean state within a single task run
+    reset_namespace()
 
+    # run the agent loop for the given prompt, tools, tool handlers, and max steps
     result, steps_used = await run_agent_loop(
         prompt=prompt,
         tools=tools,
         tool_handlers=tool_handlers,
-        max_steps=20,
+        max_steps=12,
         verbose=verbose,
     )
 
-    # Debug: Show what the LLM actually returned
+    # Debug: Show what the LLM actually returned with the number of steps used
     print(f"🔍 Run {run_id} LLM result: {result} (used {steps_used} steps)")
     
+    # grade the result using the grader function
     grader_result = grader(result, steps_used)
     
-    # Handle different grader return types
+    # Handle different grader return types, itf it returns a dict, we need to extract the passed and get the score for this grader format
     if isinstance(grader_result, dict):
         # Email triage returns dict with "passed" key
         success = grader_result.get("passed", False)
         score = grader_result.get("score", 0)
         print(f"🔍 Run {run_id} grader result: {success} (score: {score})")
     else:
-        # Other tasks return boolean
+        # Other tasks return boolean, so we can just use the result directly
         success = grader_result
         print(f"🔍 Run {run_id} grader result: {success}")
 
@@ -251,13 +284,13 @@ async def run_task_async(
 
     # Run with rate limiting to avoid 429 errors
     if concurrent:
-        # Process results with limited concurrency (max 2 at a time)
-        semaphore = asyncio.Semaphore(2)
+        # Process results with limited concurrency (max 1 at a time to avoid rate limits)
+        semaphore = asyncio.Semaphore(1)
         
         async def limited_task(task_coro):
             async with semaphore:
-                # Add small delay to avoid rate limits
-                await asyncio.sleep(0.5)
+                # Add delay to avoid rate limits
+                await asyncio.sleep(10)
                 return await task_coro
         
         # Run with limited concurrency
@@ -272,8 +305,8 @@ async def run_task_async(
         for task in tasks:
             result = await task
             results.append(result)
-            # Add delay between sequential runs
-            await asyncio.sleep(1)
+            # Add delay between sequential runs to avoid rate limits
+            await asyncio.sleep(15)
 
     # Count successes
     successes = sum(1 for _, success, _ in results if success)
