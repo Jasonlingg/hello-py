@@ -15,7 +15,10 @@ async def main():
         "python_bug_finder", 
         "email_triage",
         "resume_parser",
-        "commit_generator"
+        "commit_generator",
+        "pytorch_training_fix",
+        "choose_alg",
+        "paper_technique"
     ]
     
     parser = argparse.ArgumentParser(description="Run tasks using the clean task framework")
